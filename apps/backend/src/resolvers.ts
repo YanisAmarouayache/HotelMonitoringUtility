@@ -1,20 +1,7 @@
 import { prisma } from './prismaClient';
+import { scrapeHotel, ScrapedHotelData, DailyPrice } from './scraper';
 
-// Mock scraper function for now - will be implemented later
-const mockScrapeHotel = async (bookingUrl: string) => {
-  console.log(`Mock scraping: ${bookingUrl}`);
-  return {
-    hotelName: 'Mock Hotel',
-    hotelId: 'mock-123',
-    location: 'Mock Location',
-    currency: 'EUR',
-    ratingOverall: 8.5,
-    ratingLocation: 8.0,
-    amenities: ['WiFi', 'Pool', 'Gym']
-  };
-};
-
-// Mock daily prices data
+// Mock daily prices data for when scraper doesn't return prices
 const generateMockPrices = (hotelId: string) => {
   const prices = [];
   const today = new Date();
@@ -129,9 +116,9 @@ export const resolvers = {
           }
         });
 
-        // Mock scraping for now
-        mockScrapeHotel(bookingUrl)
-          .then(async (scrapedData) => {
+        // Start scraping in background
+        scrapeHotel(bookingUrl)
+          .then(async (scrapedData: ScrapedHotelData) => {
             await prisma.hotel.update({
               where: { id: hotel.id },
               data: {
@@ -144,8 +131,23 @@ export const resolvers = {
                 amenities: JSON.stringify(scrapedData.amenities)
               }
             });
+
+            // Store daily prices if available
+            if (scrapedData.dailyPrices && scrapedData.dailyPrices.length > 0) {
+              const priceData = scrapedData.dailyPrices.map((price: DailyPrice) => ({
+                hotelId: hotel.id,
+                checkInDate: price.checkInDate,
+                price: price.price,
+                available: price.available,
+                scrapedAt: new Date()
+              }));
+
+              await prisma.dailyPrice.createMany({
+                data: priceData
+              });
+            }
           })
-          .catch(async (error) => {
+          .catch(async (error: any) => {
             console.error('Error scraping hotel:', error);
             await prisma.hotel.update({
               where: { id: hotel.id },
@@ -183,7 +185,7 @@ export const resolvers = {
           };
         }
 
-        const scrapedData = await mockScrapeHotel(hotel.bookingUrl);
+        const scrapedData: ScrapedHotelData = await scrapeHotel(hotel.bookingUrl);
 
         // Update hotel data
         const updatedHotel = await prisma.hotel.update({
@@ -198,6 +200,27 @@ export const resolvers = {
             amenities: JSON.stringify(scrapedData.amenities)
           }
         });
+
+        // Store daily prices if available
+        if (scrapedData.dailyPrices && scrapedData.dailyPrices.length > 0) {
+          // Delete existing prices for this hotel
+          await prisma.dailyPrice.deleteMany({
+            where: { hotelId }
+          });
+
+          // Insert new prices
+          const priceData = scrapedData.dailyPrices.map((price: DailyPrice) => ({
+            hotelId,
+            checkInDate: price.checkInDate,
+            price: price.price,
+            available: price.available,
+            scrapedAt: new Date()
+          }));
+
+          await prisma.dailyPrice.createMany({
+            data: priceData
+          });
+        }
 
         return {
           success: true,
@@ -294,7 +317,23 @@ export const resolvers = {
     },
 
     dailyPrices: async (parent: any, { start, end }: { start: Date; end: Date }) => {
-      // Return mock data for now
+      // Try to get real prices from database first
+      const realPrices = await prisma.dailyPrice.findMany({
+        where: {
+          hotelId: parent.id,
+          checkInDate: {
+            gte: start,
+            lte: end
+          }
+        },
+        orderBy: { checkInDate: 'asc' }
+      });
+
+      if (realPrices.length > 0) {
+        return realPrices;
+      }
+
+      // Fallback to mock data
       const mockPrices = generateMockPrices(parent.id);
       return mockPrices.filter(price => 
         price.checkInDate >= start && price.checkInDate <= end

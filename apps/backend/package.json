@@ -12,19 +12,20 @@
     "db:studio": "npx prisma studio"
   },
   "dependencies": {
-    "apollo-server": "^3.12.1",
-    "graphql": "^16.8.1",
     "@prisma/client": "^5.7.0",
-    "prisma": "^5.7.0",
-    "zod": "^3.22.4",
+    "apollo-server": "^3.12.1",
     "cors": "^2.8.5",
+    "graphql": "^16.8.1",
     "helmet": "^7.1.0",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "playwright": "^1.53.1",
+    "prisma": "^5.7.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
     "@types/cors": "^2.8.17",
-    "typescript": "^5.3.3",
-    "ts-node-dev": "^2.0.0"
+    "@types/node": "^20.10.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
   }
-} 
+}
