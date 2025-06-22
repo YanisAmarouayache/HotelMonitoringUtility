@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Hotel {
+  id               String                  @id @default(cuid())
+  bookingUrl       String                  @unique
+  externalHotelId  String?
+  name             String?
+  location         String?
+  currency         String?
+  ratingOverall    Float?
+  ratingLocation   Float?
+  amenities        String                  // JSON string for SQLite compatibility
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  dailyPrices      DailyPrice[]
+  criterionWeights HotelCriterionWeight[]
+}
+
+model DailyPrice {
+  id           String   @id @default(cuid())
+  hotel        Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId      String
+  checkInDate  DateTime
+  price        Float
+  available    Boolean
+  scrapedAt    DateTime @default(now())
+  
+  @@unique([hotelId, checkInDate])
+}
+
+model OwnHotelHistory {
+  id            String   @id @default(cuid())
+  date          DateTime
+  priceApplied  Float
+  reservations  Int
+  createdAt     DateTime @default(now())
+}
+
+model Criterion {
+  id          String                 @id @default(cuid())
+  key         String                 @unique
+  displayName String
+  weights     HotelCriterionWeight[]
+}
+
+model HotelCriterionWeight {
+  id          String    @id @default(cuid())
+  hotel       Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotelId     String
+  criterion   Criterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+  criterionId String
+  season      String    // e.g. "summer", "2025-07"
+  weight      Float
+  
+  @@unique([hotelId, criterionId, season])
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  date        DateTime
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+} 
